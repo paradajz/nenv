@@ -1,0 +1,52 @@
+name: Docker
+
+on:
+  push:
+
+jobs:
+  x86-64:
+    name: Build Docker Container / x86-64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull the repository
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push to registry
+        uses: docker/build-push-action@v7
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64
+          file: Dockerfile
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/nenv:${{ github.sha }}-x86-64
+  create-manifests:
+    name: Create Docker manifests
+    runs-on: ubuntu-latest
+    needs: [x86-64]
+    steps:
+      - name: Pull the repository
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: SHA manifest
+        run: |
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/nenv:${{ github.sha }} \
+          ghcr.io/${{ github.repository_owner }}/nenv:${{ github.sha }}-x86-64
+      - name: latest manifest
+        run: |
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/nenv:latest \
+          ghcr.io/${{ github.repository_owner }}/nenv:${{ github.sha }}-x86-64
